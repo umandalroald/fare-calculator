@@ -1,0 +1,4 @@
+name = Fare Calculator
+description = A customizable fare calculator.
+version = 7.x-1.0
+core = 7.x

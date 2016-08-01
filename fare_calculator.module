@@ -1,0 +1,115 @@
+<?php
+
+/**
+ * Implement hook_menu().
+ */
+function fare_calculator_menu() {
+  
+  $items['fare/calculator'] = array(
+    'title' => t('Fare Calculator'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fare_calculator_form'),
+    'access arguments' => array('administer fare calculator'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/config/system/fare_calculator'] = array(
+    'title' => t('Fare Calculator'),
+    'description' => t('Setup your google API Key'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fare_calculator_configuration_form'),
+    'access arguments' => array('administer fare calculator'),
+    'position' => 'left',
+    'weight' => -15,
+    'file' => 'includes/fare_calculator.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Implement hook_permission().
+ */
+function fare_calculator_permission() {
+  return array(
+    'administer fare calculator' => array(
+      'title' => t('Manage fare calculator page.'),
+      'description' => t('Perform administration task for fare calculator'),
+    ),
+  );
+}
+
+/**
+ * Page callback fare_calculator_form().
+ */
+function fare_calculator_form($form, &$form_state) {
+  $theme_path = drupal_get_path('module', 'fare_calculator');
+  $api_key = variable_get('api_key');
+
+  drupal_add_js("
+      var map;
+      function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+          center: {lat: 14.50, lng: 123.57},
+          zoom: 4
+        });
+      }
+  ", array('type' => 'inline', 'scope' => 'footer'));
+
+  drupal_add_js($theme_path . '/js/app.js', array('type' => 'file', 'scope' => 'footer'));
+  drupal_add_js('https://maps.googleapis.com/maps/api/js?key=' . $api_key . '&callback=initMap', array('type' => 'external', 'defer' => 'defer', 'scope' => 'footer'));
+
+  $form['start'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Starting point'),
+  );
+  
+  $form['end'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Destination'),
+  );
+
+  $form['fare'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Fare rate per kilometer'),
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#ajax' => array(
+      'callback' => 'fare_calculator_form_callback',
+    ),
+  );
+
+  return $form;
+}
+
+/**
+ * AJAX submit callback
+ */
+function fare_calculator_form_callback($form, &$form_state) {
+  $form_state['rebuild'] = TRUE;
+  // Store form values to actions variable.
+  $actions = array('start' => filter_xss($form_state['values']['start']), 'end' => filter_xss($form_state['values']['end']), 'fare' => filter_xss($form_state['values']['fare']));
+  // Invoke custom function using ajax command api, ajax_command_invoke.
+  $commands[] = ajax_command_invoke(NULL, "fareCalculator", array($actions));
+  return array(
+    '#type' => 'ajax',
+    '#commands' => $commands
+  );
+}
+
+
+/**
+ * Implement hook_theme()
+ */
+function fare_calculator_theme($existing, $type, $theme, $path) {
+  return array(
+    'fare_calculator_form' => array(
+      'render element' => 'form',
+      'template' => 'templates/fare-calculator-page'
+    ),
+  );
+}
